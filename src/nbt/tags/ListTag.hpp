@@ -28,10 +28,10 @@ namespace Nbt {
 
         // Container API
 
-        size_t size() const noexcept {
+        [[nodiscard]] size_t size() const noexcept {
             return mElements.size();
         }
-        bool empty() const noexcept {
+        [[nodiscard]] bool empty() const noexcept {
             return mElements.empty();
         }
 
@@ -47,10 +47,10 @@ namespace Nbt {
             return mElements.end();
         }
 
-        const_iterator begin() const noexcept {
+        [[nodiscard]] const_iterator begin() const noexcept {
             return mElements.begin();
         }
-        const_iterator end() const noexcept {
+        [[nodiscard]] const_iterator end() const noexcept {
             return mElements.end();
         }
 
@@ -91,7 +91,7 @@ namespace Nbt {
         read(cubix::BinaryStream& stream) override {
             const auto value = stream.tryRead<int8_t>();
             if (!value) {
-                return std::unexpected(std::runtime_error{value.error().message});
+                return std::unexpected(value.error());
             }
 
             this->mType = static_cast<Nbt::TagType>(*value);
@@ -108,19 +108,19 @@ namespace Nbt {
             return {};
         }
 
-        TagType getListType() const {
+        [[nodiscard]] TagType getListType() const {
             return mType;
         }
 
-        TagType getType() const override {
+        [[nodiscard]] TagType getType() const override {
             return TagType::List;
         }
 
-        std::shared_ptr<Tag> copy() const override {
+        [[nodiscard]] std::shared_ptr<Tag> copy() const override {
             return std::make_shared<ListTag>(*this);
         }
 
-        std::string toString(int /*indent*/) const override {
+        [[nodiscard]] std::string toString(int /*indent*/) const override {
             auto view =
                 mElements | std::views::filter([](const auto& v) {
                     return v && v->getType() != TagType::End;

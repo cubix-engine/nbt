@@ -6,15 +6,6 @@
 #include <BinaryStream/BinaryStream.hpp>
 
 namespace Nbt {
-    inline std::runtime_error toRuntimeError(const std::runtime_error& e) {
-        return e;
-    }
-
-    inline std::runtime_error
-    toRuntimeError(const cubix::BinaryStreamException::ReadErrorInfo& e) {
-        return std::runtime_error{e.message};
-    }
-
     template <NbtFormat F>
     struct io {
         static constexpr std::endian Endian =
@@ -26,7 +17,7 @@ namespace Nbt {
                 if constexpr (std::is_same_v<T, int32_t>) {
                     auto value = stream.tryReadVarInt32();
                     if (!value) {
-                        return std::unexpected(std::runtime_error{value.error().message});
+                        return std::unexpected(value.error());
                     }
 
                     return *value;
@@ -35,7 +26,7 @@ namespace Nbt {
 
             auto value = stream.tryRead<T, Endian>();
             if (!value) {
-                return std::unexpected(std::runtime_error{value.error().message});
+                return std::unexpected(value.error());
             }
 
             return *value;
@@ -47,7 +38,7 @@ namespace Nbt {
             if constexpr (F == NbtFormat::NetworkLittleEndian) {
                 auto value = stream.tryReadVarInt32();
                 if (!value) {
-                    return std::unexpected(std::runtime_error{value.error().message});
+                    return std::unexpected(value.error());
                 }
 
                 length = static_cast<uint16_t>(*value);
@@ -55,7 +46,7 @@ namespace Nbt {
             else {
                 auto value = stream.tryRead<uint16_t, Endian>();
                 if (!value) {
-                    return std::unexpected(std::runtime_error{value.error().message});
+                    return std::unexpected(value.error());
                 }
 
                 length = *value;
@@ -63,7 +54,7 @@ namespace Nbt {
 
             auto value = stream.tryReadString(length);
             if (!value) {
-                return std::unexpected(std::runtime_error{value.error().message});
+                return std::unexpected(value.error());
             }
 
             return *value;
@@ -116,7 +107,7 @@ namespace Nbt {
                 auto value = fn(stream);
 
                 if (!value) {
-                    return std::unexpected(toRuntimeError(value.error()));
+                    return std::unexpected(value.error());
                 }
 
                 result.push_back(*value);

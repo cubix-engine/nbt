@@ -94,7 +94,7 @@ namespace Nbt {
     readRoot(cubix::BinaryStream& stream) {
         auto id = stream.tryRead<int8_t>();
         if (!id) {
-            return std::unexpected(std::runtime_error{id.error().message});
+            return std::unexpected(id.error());
         }
 
         if (static_cast<TagType>(*id) != TagType::Compound) {
@@ -103,12 +103,12 @@ namespace Nbt {
 
         auto length = stream.tryRead<uint16_t, Nbt::io<F>::Endian>();
         if (!length) {
-            return std::unexpected(std::runtime_error{length.error().message});
+            return std::unexpected(length.error());
         }
 
         auto name = stream.tryReadString(*length);
         if (!name) {
-            return std::unexpected(std::runtime_error{name.error().message});
+            return std::unexpected(name.error());
         }
 
         return Nbt::readPayload<F>(stream, TagType::Compound);
@@ -121,7 +121,7 @@ namespace Nbt {
         // Read type
         auto id = stream.tryRead<int8_t>();
         if (!id) {
-            return std::unexpected(std::runtime_error{id.error().message});
+            return std::unexpected(id.error());
         }
 
         const auto type = static_cast<TagType>(*id);
@@ -140,7 +140,7 @@ namespace Nbt {
         // Read name
         auto name = stream.tryReadString(*length);
         if (!name) {
-            return std::unexpected(std::runtime_error{name.error().message});
+            return std::unexpected(name.error());
         }
 
         // Read payload
