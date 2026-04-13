@@ -1,0 +1,56 @@
+#ifndef INTTAG_HPP
+#define INTTAG_HPP
+
+#include "nbt/Tag.hpp"
+#include "nbt/io/NbtFormat.hpp"
+#include "nbt/io/NbtIo.hpp"
+
+namespace Nbt {
+
+    template <NbtFormat F>
+    class IntTag final : public Nbt::Tag {
+    private:
+        int32_t mValue{0};
+
+    public:
+        explicit IntTag(const int32_t value = 0) : mValue(value) {};
+
+        [[nodiscard]] Nbt::TagType getType() const override {
+            return Nbt::TagType::Int;
+        }
+
+        [[nodiscard]] int32_t getValue() const {
+            return this->mValue;
+        }
+
+        void setValue(const int32_t value) {
+            this->mValue = value;
+        }
+
+        void write(cubix::BinaryStream& stream) override {
+            const auto value = this->getValue();
+            Nbt::io<F>::template writeInt<int32_t>(stream, value);
+        }
+
+        [[nodiscard]] std::expected<void, std::runtime_error>
+        read(cubix::BinaryStream& stream) override {
+            const auto value = Nbt::io<F>::template readInt<int32_t>(stream);
+            if (!value) {
+                return std::unexpected(value.error());
+            }
+
+            this->setValue(*value);
+            return {};
+        }
+
+        [[nodiscard]] std::shared_ptr<Nbt::Tag> copy() const override {
+            return std::make_shared<IntTag>(*this);
+        }
+
+        [[nodiscard]] std::string toString(int /*indent*/) const override {
+            return std::to_string(this->mValue) + "i";
+        }
+    };
+} // namespace Nbt
+
+#endif // !INTTAG_HPP
