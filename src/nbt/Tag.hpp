@@ -1,8 +1,6 @@
 #ifndef TAG_HPP
 #define TAG_HPP
-#include <cstdint>
 #include <memory>
-
 #include <BinaryStream/BinaryStream.hpp>
 
 namespace Nbt {

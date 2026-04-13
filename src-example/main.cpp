@@ -43,7 +43,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
     std::ignore      = NbtLE::writeRoot(stream, tag.copy());
     const auto value = NbtLE::readRoot(stream);
     if (!value) {
-        return 0;
+        return 1;
     }
 
     const auto& result = *value;

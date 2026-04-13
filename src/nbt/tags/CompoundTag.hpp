@@ -28,15 +28,6 @@ namespace Nbt {
 
         TagList mTags{};
 
-        // Centralized lookup
-        auto findImpl(const std::string& key) {
-            return std::ranges::find_if(mTags, [&](const auto& p) { return p.first == key; });
-        }
-
-        auto findImpl(const std::string& key) const {
-            return std::ranges::find_if(mTags, [&](const auto& p) { return p.first == key; });
-        }
-
     public:
         using iterator       = TagList::iterator;
         using const_iterator = TagList::const_iterator;
@@ -45,7 +36,7 @@ namespace Nbt {
         CompoundTag()           = default;
         ~CompoundTag() override = default;
 
-        // Basic container API
+        // Container API
 
         [[nodiscard]] size_type size() const noexcept {
             return mTags.size();
@@ -103,22 +94,27 @@ namespace Nbt {
 
         std::shared_ptr<Tag>& at(const std::string& key) {
             auto it = findImpl(key);
-            if (it == mTags.end())
+            if (it == mTags.end()) {
                 throw std::out_of_range("Tag not found: " + key);
+            }
+
             return it->second;
         }
 
         [[nodiscard]] const std::shared_ptr<Tag>& at(const std::string& key) const {
             auto it = findImpl(key);
-            if (it == mTags.end())
+            if (it == mTags.end()) {
                 throw std::out_of_range("Tag not found: " + key);
+            }
+
             return it->second;
         }
 
         std::shared_ptr<Tag>& operator[](const std::string& key) {
             auto it = findImpl(key);
-            if (it != mTags.end())
+            if (it != mTags.end()) {
                 return it->second;
+            }
 
             mTags.emplace_back(key, nullptr);
             return mTags.back().second;
@@ -126,8 +122,9 @@ namespace Nbt {
 
         size_type erase(const std::string& key) {
             auto it = findImpl(key);
-            if (it == mTags.end())
+            if (it == mTags.end()) {
                 return 0;
+            }
 
             mTags.erase(it);
             return 1;
@@ -163,7 +160,8 @@ namespace Nbt {
             return *ptr;
         }
 
-        // Example helpers
+        // Helpers
+
         [[nodiscard]] int32_t getInt(const std::string& key) const {
             return require<IntTag>(key).getValue();
         }
@@ -241,6 +239,16 @@ namespace Nbt {
 
             result += "\n" + indentString + "}";
             return result;
+        }
+
+    private:
+        // Centralized lookup
+        auto findImpl(const std::string& key) {
+            return std::ranges::find_if(mTags, [&](const auto& p) { return p.first == key; });
+        }
+
+        auto findImpl(const std::string& key) const {
+            return std::ranges::find_if(mTags, [&](const auto& p) { return p.first == key; });
         }
     };
 
