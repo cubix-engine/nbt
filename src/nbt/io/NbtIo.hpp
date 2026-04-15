@@ -117,16 +117,13 @@ namespace Nbt {
         }
 
         template <typename T, typename Fn>
-        static std::expected<void, std::runtime_error>
-        writeList(cubix::BinaryStream& stream, const std::vector<T>& list, Fn&& fn) {
+        static void writeList(cubix::BinaryStream& stream, const std::vector<T>& list, Fn&& fn) {
             const auto size = static_cast<int32_t>(list.size());
             writeInt<int32_t>(stream, size);
 
             for (const auto& item : list) {
                 fn(stream, item);
             }
-
-            return {};
         }
     };
 } // namespace Nbt
