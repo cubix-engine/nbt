@@ -93,7 +93,7 @@ namespace Nbt {
     }
 
     template <NbtFormat F>
-    std::expected<std::unique_ptr<Tag>, std::runtime_error>
+    std::expected<std::unique_ptr<CompoundTag<F>>, std::runtime_error>
     readRoot(cubix::BinaryStream& stream) {
         auto id = stream.tryRead<int8_t>();
         if (!id) {
@@ -114,7 +114,14 @@ namespace Nbt {
             return std::unexpected(name.error());
         }
 
-        return Nbt::readPayload<F>(stream, TagType::Compound);
+        auto compound = std::make_unique<CompoundTag<F>>();
+
+        const auto result = compound->read(stream);
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+
+        return compound;
     }
 
     template <NbtFormat F>

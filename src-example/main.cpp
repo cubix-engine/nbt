@@ -34,8 +34,8 @@ int main(int /*argc*/, char* /*argv*/[]) {
     tag.add("float", NbtLE::FloatTag(1.0));
     tag.add("double", NbtLE::DoubleTag(1.0));
     tag.add("string", NbtLE::StringTag("Hello, world!"));
-    tag.add("list", std::move(list));
-    tag.add("compound", std::move(compound));
+    tag.add("list", list);
+    tag.add("compound", compound);
     tag.add("byteArray", NbtLE::ByteArrayTag{0, 1, 2});
     tag.add("intArray", NbtLE::IntArrayTag{3, 4, 5});
     tag.add("longArray", NbtLE::LongArrayTag{6, 7, 8});
@@ -47,5 +47,5 @@ int main(int /*argc*/, char* /*argv*/[]) {
     }
 
     const auto& result = *value;
-    std::println("{}", result->toString());
+    std::println("{}", result->toString(0));
 }
