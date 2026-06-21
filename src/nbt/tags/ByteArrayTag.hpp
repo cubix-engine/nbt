@@ -22,20 +22,16 @@ namespace Nbt {
         }
 
         void write(cubix::BinaryStream& stream) override {
-            this->writeImpl(stream, [](cubix::BinaryStream& s, const int8_t byte) {
-                s.writeInt8(byte);
-            });
+            this->writeImpl(stream);
         };
 
         [[nodiscard]] std::expected<void, std::runtime_error>
         read(cubix::BinaryStream& stream) override {
-            return this->readImpl(stream, [](cubix::BinaryStream& s) {
-                return s.tryRead<int8_t>();
-            });
+            return this->readImpl(stream);
         }
 
-        [[nodiscard]] std::shared_ptr<Nbt::Tag> copy() const override {
-            return std::make_shared<ByteArrayTag>(*this);
+        [[nodiscard]] std::unique_ptr<Nbt::Tag> copy() const override {
+            return std::make_unique<ByteArrayTag>(*this);
         }
 
         [[nodiscard]] std::string toString(int /*indent*/) const override {

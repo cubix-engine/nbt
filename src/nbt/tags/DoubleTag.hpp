@@ -43,8 +43,8 @@ namespace Nbt {
             return {};
         }
 
-        [[nodiscard]] std::shared_ptr<Nbt::Tag> copy() const override {
-            return std::make_shared<DoubleTag>(*this);
+        [[nodiscard]] std::unique_ptr<Nbt::Tag> copy() const override {
+            return std::make_unique<DoubleTag>(*this);
         }
 
         [[nodiscard]] std::string toString(int /*indent*/) const override {

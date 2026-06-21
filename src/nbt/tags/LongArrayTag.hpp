@@ -20,20 +20,16 @@ namespace Nbt {
         }
 
         void write(cubix::BinaryStream& stream) override {
-            this->writeImpl(stream, [](cubix::BinaryStream& s, const int64_t value) {
-                s.writeInt64(value);
-            });
+            this->writeImpl(stream);
         };
 
         [[nodiscard]] std::expected<void, std::runtime_error>
         read(cubix::BinaryStream& stream) override {
-            return this->readImpl(stream, [](cubix::BinaryStream& s) {
-                return s.tryRead<int64_t>();
-            });
+            return this->readImpl(stream);
         }
 
-        [[nodiscard]] std::shared_ptr<Nbt::Tag> copy() const override {
-            return std::make_shared<LongArrayTag>(*this);
+        [[nodiscard]] std::unique_ptr<Nbt::Tag> copy() const override {
+            return std::make_unique<LongArrayTag>(*this);
         }
 
         [[nodiscard]] std::string toString(int /*indent*/) const override {

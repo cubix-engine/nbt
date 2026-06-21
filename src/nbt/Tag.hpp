@@ -25,7 +25,7 @@ namespace Nbt {
         virtual ~Tag() = default;
 
         [[nodiscard]] virtual Nbt::TagType         getType() const = 0;
-        [[nodiscard]] virtual std::shared_ptr<Tag> copy() const    = 0;
+        [[nodiscard]] virtual std::unique_ptr<Tag> copy() const    = 0;
 
         virtual void                                    write(cubix::BinaryStream&) = 0;
         virtual std::expected<void, std::runtime_error> read(cubix::BinaryStream&)  = 0;
@@ -60,8 +60,8 @@ namespace Nbt {
         [[nodiscard]] Nbt::TagType getType() const override {
             return Nbt::TagType::End;
         };
-        [[nodiscard]] std::shared_ptr<Nbt::Tag> copy() const override {
-            return std::make_shared<EndTag>(*this);
+        [[nodiscard]] std::unique_ptr<Nbt::Tag> copy() const override {
+            return std::make_unique<EndTag>(*this);
         };
 
         void                                    write(cubix::BinaryStream&) override {};

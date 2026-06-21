@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "nbt/Tag.hpp"
@@ -13,30 +14,64 @@
 #include "IntTag.hpp"
 
 namespace Nbt {
-    template <NbtFormat F>
-    std::expected<std::pair<std::string, std::shared_ptr<Tag>>, std::runtime_error>
-    readNamed(cubix::BinaryStream&);
-}
 
-namespace Nbt {
+    template <NbtFormat F>
+    std::expected<std::pair<std::string, std::unique_ptr<Tag>>, std::runtime_error>
+    readNamed(cubix::BinaryStream&);
+
+    template <typename T>
+    struct TagTypeOf;
+
+    template <NbtFormat F>
+    class CompoundTag;
+
+    template <NbtFormat F>
+    struct TagTypeOf<ByteTag<F>> {
+        static constexpr auto value = TagType::Byte;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<IntTag<F>> {
+        static constexpr auto value = TagType::Int;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<CompoundTag<F>> {
+        static constexpr auto value = TagType::Compound;
+    };
 
     template <NbtFormat F>
     class CompoundTag final : public Nbt::Tag {
     private:
-        using TagPair = std::pair<std::string, std::shared_ptr<Tag>>;
+        using TagPair = std::pair<std::string, std::unique_ptr<Tag>>;
         using TagList = std::vector<TagPair>;
 
-        TagList mTags{};
+        TagList                                 mTags{};
+        std::unordered_map<std::string, size_t> mLookup{};
 
     public:
         using iterator       = TagList::iterator;
         using const_iterator = TagList::const_iterator;
         using size_type      = TagList::size_type;
 
-        CompoundTag()           = default;
+        CompoundTag() {
+            mTags.reserve(32);
+            mLookup.reserve(32);
+        }
         ~CompoundTag() override = default;
 
+        CompoundTag(const CompoundTag&)            = delete;
+        CompoundTag& operator=(const CompoundTag&) = delete;
+
+        CompoundTag(CompoundTag&&) noexcept            = default;
+        CompoundTag& operator=(CompoundTag&&) noexcept = default;
+
         // Container API
+
+        void reserve(const size_t count) {
+            mTags.reserve(count);
+            mLookup.reserve(count);
+        }
 
         [[nodiscard]] size_type size() const noexcept {
             return mTags.size();
@@ -44,8 +79,10 @@ namespace Nbt {
         [[nodiscard]] bool empty() const noexcept {
             return mTags.empty();
         }
+
         void clear() noexcept {
             mTags.clear();
+            mLookup.clear();
         }
 
         iterator begin() noexcept {
@@ -64,18 +101,39 @@ namespace Nbt {
 
         // Insertion
 
-        template <typename T>
-            requires std::derived_from<std::decay_t<T>, Tag>
-        CompoundTag& add(std::string name, T&& tag) {
-            mTags.emplace_back(
-                std::move(name), std::make_shared<std::decay_t<T>>(std::forward<T>(tag))
-            );
+        CompoundTag& add(std::string name, const Tag& tag) {
+            auto index = mTags.size();
+
+            mLookup.emplace(name, index);
+            mTags.emplace_back(std::move(name), tag.copy());
+
             return *this;
         }
 
-        CompoundTag& add(std::string name, std::shared_ptr<Tag> tag) {
+        template <typename T>
+            requires std::derived_from<T, Tag>
+        CompoundTag& add(std::string name, std::unique_ptr<T> tag) {
+            auto index = mTags.size();
+
+            mLookup.emplace(name, index);
             mTags.emplace_back(std::move(name), std::move(tag));
+
             return *this;
+        }
+
+        template <typename T, typename... Args>
+            requires std::derived_from<T, Tag>
+        T& emplace(std::string name, Args&&... args) {
+            auto ptr = std::make_unique<T>(std::forward<Args>(args)...);
+
+            T& ref = *ptr;
+
+            auto index = mTags.size();
+
+            mLookup.emplace(name, index);
+            mTags.emplace_back(std::move(name), std::move(ptr));
+
+            return ref;
         }
 
         // Lookup
@@ -89,10 +147,10 @@ namespace Nbt {
         }
 
         [[nodiscard]] bool contains(const std::string& key) const {
-            return findImpl(key) != mTags.end();
+            return mLookup.contains(key);
         }
 
-        std::shared_ptr<Tag>& at(const std::string& key) {
+        std::unique_ptr<Tag>& at(const std::string& key) {
             auto it = findImpl(key);
             if (it == mTags.end()) {
                 throw std::out_of_range("Tag not found: " + key);
@@ -101,7 +159,7 @@ namespace Nbt {
             return it->second;
         }
 
-        [[nodiscard]] const std::shared_ptr<Tag>& at(const std::string& key) const {
+        [[nodiscard]] const std::unique_ptr<Tag>& at(const std::string& key) const {
             auto it = findImpl(key);
             if (it == mTags.end()) {
                 throw std::out_of_range("Tag not found: " + key);
@@ -110,13 +168,17 @@ namespace Nbt {
             return it->second;
         }
 
-        std::shared_ptr<Tag>& operator[](const std::string& key) {
+        std::unique_ptr<Tag>& operator[](const std::string& key) {
             auto it = findImpl(key);
             if (it != mTags.end()) {
                 return it->second;
             }
 
+            auto index = mTags.size();
+
+            mLookup.emplace(key, index);
             mTags.emplace_back(key, nullptr);
+
             return mTags.back().second;
         }
 
@@ -127,6 +189,8 @@ namespace Nbt {
             }
 
             mTags.erase(it);
+
+            rebuildLookup();
             return 1;
         }
 
@@ -134,20 +198,34 @@ namespace Nbt {
 
         template <typename T>
         T* getAs(const std::string& key) {
-            if (auto it = findImpl(key); it != mTags.end()) {
-                return dynamic_cast<T*>(it->second.get());
+            auto it = findImpl(key);
+            if (it == mTags.end()) {
+                return nullptr;
             }
 
-            return nullptr;
+            auto* tag = it->second.get();
+
+            if (tag->getType() != TagTypeOf<T>::value) {
+                return nullptr;
+            }
+
+            return static_cast<T*>(tag);
         }
 
         template <typename T>
         const T* getAs(const std::string& key) const {
-            if (auto it = findImpl(key); it != mTags.end()) {
-                return dynamic_cast<const T*>(it->second.get());
+            auto it = findImpl(key);
+            if (it == mTags.end()) {
+                return nullptr;
             }
 
-            return nullptr;
+            auto* tag = it->second.get();
+
+            if (tag->getType() != TagTypeOf<T>::value) {
+                return nullptr;
+            }
+
+            return static_cast<const T*>(tag);
         }
 
         template <typename T>
@@ -170,8 +248,12 @@ namespace Nbt {
             return require<ByteTag>(key).getValue();
         }
 
-        std::shared_ptr<CompoundTag> getCompound(const std::string& key) const {
-            return std::static_pointer_cast<CompoundTag>(at(key));
+        CompoundTag* getCompound(const std::string& key) {
+            return getAs<CompoundTag>(key);
+        }
+
+        const CompoundTag* getCompound(const std::string& key) const {
+            return getAs<CompoundTag>(key);
         }
 
         // Tag interface
@@ -180,8 +262,20 @@ namespace Nbt {
             return TagType::Compound;
         }
 
-        [[nodiscard]] std::shared_ptr<Tag> copy() const override {
-            return std::make_shared<CompoundTag>(*this);
+        [[nodiscard]] std::unique_ptr<Tag> copy() const override {
+            auto result = std::make_unique<CompoundTag>();
+
+            result->mTags.reserve(mTags.size());
+            result->mLookup.reserve(mTags.size());
+
+            for (const auto& [name, tag] : mTags) {
+                auto index = result->mTags.size();
+
+                result->mLookup.emplace(name, index);
+                result->mTags.emplace_back(name, tag ? tag->copy() : nullptr);
+            }
+
+            return result;
         }
 
         void write(cubix::BinaryStream& stream) override {
@@ -201,12 +295,12 @@ namespace Nbt {
                     return std::unexpected(named.error());
                 }
 
-                auto [name, tag] = *named;
+                auto&& [name, tag] = *named;
                 if (tag == nullptr || tag->getType() == TagType::End) {
                     break;
                 }
 
-                this->add(name, tag);
+                this->add(std::move(name), std::move(tag));
             }
 
             return {};
@@ -214,7 +308,7 @@ namespace Nbt {
 
         // Debug / SNBT
 
-        std::string toString(const int indent) const override {
+        [[nodiscard]] std::string toString(const int indent) const override {
             if (this->empty()) {
                 return "{}";
             }
@@ -242,13 +336,34 @@ namespace Nbt {
         }
 
     private:
+        void rebuildLookup() {
+            mLookup.clear();
+            mLookup.reserve(mTags.size());
+
+            for (size_t i = 0; i < mTags.size(); ++i) {
+                mLookup.emplace(mTags[i].first, i);
+            }
+        }
+
         // Centralized lookup
         auto findImpl(const std::string& key) {
-            return std::ranges::find_if(mTags, [&](const auto& p) { return p.first == key; });
+            const auto lookup = mLookup.find(key);
+
+            if (lookup == mLookup.end()) {
+                return mTags.end();
+            }
+
+            return mTags.begin() + static_cast<std::ptrdiff_t>(lookup->second);
         }
 
         auto findImpl(const std::string& key) const {
-            return std::ranges::find_if(mTags, [&](const auto& p) { return p.first == key; });
+            const auto lookup = mLookup.find(key);
+
+            if (lookup == mLookup.end()) {
+                return mTags.end();
+            }
+
+            return mTags.begin() + static_cast<std::ptrdiff_t>(lookup->second);
         }
     };
 

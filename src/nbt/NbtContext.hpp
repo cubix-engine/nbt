@@ -38,7 +38,7 @@ namespace Nbt {
             return Nbt::readRoot<F>(s);
         }
 
-        static auto writeRoot(cubix::BinaryStream& s, std::shared_ptr<Nbt::Tag> tag) {
+        static auto writeRoot(cubix::BinaryStream& s, std::unique_ptr<Nbt::Tag> tag) {
             return Nbt::writeRoot<F>(s, std::move(tag));
         }
     };

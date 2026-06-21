@@ -21,59 +21,59 @@
 namespace Nbt {
 
     template <NbtFormat F>
-    std::expected<std::shared_ptr<Tag>, std::runtime_error>
+    std::expected<std::unique_ptr<Tag>, std::runtime_error>
     readPayload(cubix::BinaryStream& stream, const TagType type) {
-        std::shared_ptr<Nbt::Tag> pTag{nullptr};
+        std::unique_ptr<Nbt::Tag> pTag{nullptr};
 
         switch (type) {
 
         case TagType::Byte: {
-            pTag = std::make_shared<Nbt::ByteTag<F>>();
+            pTag = std::make_unique<Nbt::ByteTag<F>>();
             break;
         }
         case TagType::Short: {
-            pTag = std::make_shared<Nbt::ShortTag<F>>();
+            pTag = std::make_unique<Nbt::ShortTag<F>>();
             break;
         }
         case TagType::Int: {
-            pTag = std::make_shared<Nbt::IntTag<F>>();
+            pTag = std::make_unique<Nbt::IntTag<F>>();
             break;
         }
         case TagType::Int64: {
-            pTag = std::make_shared<Nbt::Int64Tag<F>>();
+            pTag = std::make_unique<Nbt::Int64Tag<F>>();
             break;
         }
         case TagType::Float: {
-            pTag = std::make_shared<Nbt::FloatTag<F>>();
+            pTag = std::make_unique<Nbt::FloatTag<F>>();
             break;
         }
         case TagType::Double: {
-            pTag = std::make_shared<Nbt::DoubleTag<F>>();
+            pTag = std::make_unique<Nbt::DoubleTag<F>>();
             break;
         }
         case TagType::String: {
-            pTag = std::make_shared<Nbt::StringTag<F>>();
+            pTag = std::make_unique<Nbt::StringTag<F>>();
             break;
         }
         case TagType::List: {
-            pTag = std::make_shared<Nbt::ListTag<F>>();
+            pTag = std::make_unique<Nbt::ListTag<F>>();
             break;
         }
         case TagType::Compound: {
-            pTag = std::make_shared<Nbt::CompoundTag<F>>();
+            pTag = std::make_unique<Nbt::CompoundTag<F>>();
             break;
         }
 
         case TagType::ByteArray: {
-            pTag = std::make_shared<Nbt::ByteArrayTag<F>>();
+            pTag = std::make_unique<Nbt::ByteArrayTag<F>>();
             break;
         }
         case TagType::IntArray: {
-            pTag = std::make_shared<Nbt::IntArrayTag<F>>();
+            pTag = std::make_unique<Nbt::IntArrayTag<F>>();
             break;
         }
         case TagType::LongArray: {
-            pTag = std::make_shared<Nbt::LongArrayTag<F>>();
+            pTag = std::make_unique<Nbt::LongArrayTag<F>>();
             break;
         }
 
@@ -82,7 +82,10 @@ namespace Nbt {
         }
 
         if (pTag != nullptr) {
-            std::ignore = pTag->read(stream);
+            if (auto result = pTag->read(stream); !result) {
+                return std::unexpected(result.error());
+            }
+
             return pTag;
         };
 
@@ -90,7 +93,7 @@ namespace Nbt {
     }
 
     template <NbtFormat F>
-    std::expected<std::shared_ptr<Tag>, std::runtime_error>
+    std::expected<std::unique_ptr<Tag>, std::runtime_error>
     readRoot(cubix::BinaryStream& stream) {
         auto id = stream.tryRead<int8_t>();
         if (!id) {
@@ -115,7 +118,7 @@ namespace Nbt {
     }
 
     template <NbtFormat F>
-    std::expected<std::pair<std::string, std::shared_ptr<Tag>>, std::runtime_error>
+    std::expected<std::pair<std::string, std::unique_ptr<Tag>>, std::runtime_error>
     readNamed(cubix::BinaryStream& stream) {
 
         // Read type
@@ -149,7 +152,7 @@ namespace Nbt {
             return std::unexpected(payload.error());
         }
 
-        return std::pair{*name, *payload};
+        return std::pair{std::move(*name), std::move(*payload)};
     }
 } // namespace Nbt
 

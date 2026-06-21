@@ -3,13 +3,13 @@
 #include <ranges>
 
 #include "nbt/Tag.hpp"
-#include "nbt/io/NbtWriter.hpp"
 #include "nbt/io/NbtFormat.hpp"
 #include "nbt/io/NbtIo.hpp"
+#include "nbt/io/NbtWriter.hpp"
 
 namespace Nbt {
     template <NbtFormat F>
-    std::expected<std::shared_ptr<Tag>, std::runtime_error>
+    std::expected<std::unique_ptr<Tag>, std::runtime_error>
     readPayload(cubix::BinaryStream&, TagType type);
 }
 
@@ -17,7 +17,7 @@ namespace Nbt {
 
     template <NbtFormat F>
     class ListTag final : public Nbt::Tag {
-        using ListType = std::vector<std::shared_ptr<Tag>>;
+        using ListType = std::vector<std::unique_ptr<Tag>>;
 
         TagType  mType{TagType::End};
         ListType mElements{};
@@ -25,6 +25,17 @@ namespace Nbt {
     public:
         using iterator       = ListType::iterator;
         using const_iterator = ListType::const_iterator;
+
+        ListTag() {
+                mElements.reserve(16);
+        }
+        ~ListTag() override = default;
+
+        ListTag(const ListTag&)            = delete;
+        ListTag& operator=(const ListTag&) = delete;
+
+        ListTag(ListTag&&) noexcept            = default;
+        ListTag& operator=(ListTag&&) noexcept = default;
 
         // Container API
 
@@ -56,16 +67,16 @@ namespace Nbt {
 
         // Access
 
-        std::shared_ptr<Tag>& operator[](const size_t i) {
+        std::unique_ptr<Tag>& operator[](const size_t i) {
             return mElements[i];
         }
-        const std::shared_ptr<Tag>& operator[](const size_t i) const {
+        const std::unique_ptr<Tag>& operator[](const size_t i) const {
             return mElements[i];
         }
 
         // Add
 
-        ListTag& add(std::shared_ptr<Tag> tag) {
+        ListTag& add(std::unique_ptr<Tag> tag) {
             validate(tag);
             mElements.emplace_back(std::move(tag));
             return *this;
@@ -74,14 +85,14 @@ namespace Nbt {
         template <typename T>
             requires std::derived_from<std::decay_t<T>, Tag>
         ListTag& add(T&& tag) {
-            return add(std::make_shared<std::decay_t<T>>(std::forward<T>(tag)));
+            return add(std::make_unique<std::decay_t<T>>(std::forward<T>(tag)));
         }
 
         void write(cubix::BinaryStream& stream) override {
             stream.writeInt8(static_cast<int8_t>(mType));
 
             Nbt::io<F>::writeList(
-                stream, mElements, [](cubix::BinaryStream& s, const std::shared_ptr<Tag>& tag) {
+                stream, mElements, [](cubix::BinaryStream& s, const std::unique_ptr<Tag>& tag) {
                     Nbt::writePayload(s, tag);
                 }
             );
@@ -95,7 +106,7 @@ namespace Nbt {
             }
 
             this->mType = static_cast<Nbt::TagType>(*value);
-            auto result = Nbt::io<F>::template readList<std::shared_ptr<Tag>>(
+            auto result = Nbt::io<F>::template readList<std::unique_ptr<Tag>>(
                 stream,
                 [&](cubix::BinaryStream& s) { return Nbt::readPayload<F>(s, this->mType); }
             );
@@ -116,8 +127,17 @@ namespace Nbt {
             return TagType::List;
         }
 
-        [[nodiscard]] std::shared_ptr<Tag> copy() const override {
-            return std::make_shared<ListTag>(*this);
+        [[nodiscard]] std::unique_ptr<Tag> copy() const override {
+            auto result = std::make_unique<ListTag>();
+
+            result->mType = mType;
+            result->mElements.reserve(mElements.size());
+
+            for (const auto& element : mElements) {
+                result->mElements.emplace_back(element ? element->copy() : nullptr);
+            }
+
+            return result;
         }
 
         [[nodiscard]] std::string toString(int /*indent*/) const override {
@@ -131,7 +151,7 @@ namespace Nbt {
         }
 
     private:
-        void validate(const std::shared_ptr<Tag>& tag) {
+        void validate(const std::unique_ptr<Tag>& tag) {
             if (!tag) {
                 throw std::runtime_error("Null tag in Nbt::ListTag");
             }

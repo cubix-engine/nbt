@@ -70,15 +70,13 @@ namespace Nbt {
             return mElements;
         }
 
-        template <typename WriteFn>
-        void writeImpl(cubix::BinaryStream& stream, WriteFn&& fn) {
-            Nbt::io<F>::template writeList<T>(stream, mElements, std::forward<WriteFn>(fn));
+        void writeImpl(cubix::BinaryStream& stream) {
+            Nbt::io<F>::template writeArray<T>(stream, mElements);
         };
 
-        template <typename ReadFn>
         [[nodiscard]] std::expected<void, std::runtime_error>
-        readImpl(cubix::BinaryStream& stream, ReadFn&& fn) {
-            auto result = Nbt::io<F>::template readList<T>(stream, std::forward<ReadFn>(fn));
+        readImpl(cubix::BinaryStream& stream) {
+            auto result = Nbt::io<F>::template readArray<T>(stream);
 
             if (!result) {
                 return std::unexpected{result.error()};

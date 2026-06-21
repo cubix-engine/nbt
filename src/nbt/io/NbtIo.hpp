@@ -1,6 +1,7 @@
 #ifndef NBTIO_HPP
 #define NBTIO_HPP
 #include <bit>
+#include <cstring>
 
 #include "NbtFormat.hpp"
 #include <BinaryStream/BinaryStream.hpp>
@@ -110,19 +111,87 @@ namespace Nbt {
                     return std::unexpected(value.error());
                 }
 
-                result.push_back(*value);
+                result.emplace_back(std::move(*value));
             }
 
             return result;
         }
 
         template <typename T, typename Fn>
-        static void writeList(cubix::BinaryStream& stream, const std::vector<T>& list, Fn&& fn) {
+        static void
+        writeList(cubix::BinaryStream& stream, const std::vector<T>& list, Fn&& fn) {
             const auto size = static_cast<int32_t>(list.size());
             writeInt<int32_t>(stream, size);
 
             for (const auto& item : list) {
                 fn(stream, item);
+            }
+        }
+
+        template <typename T>
+        static std::expected<std::vector<T>, std::runtime_error>
+        readArray(cubix::BinaryStream& stream) {
+            static_assert(
+                std::is_trivially_copyable_v<T>, "readArray requires a trivially copyable type"
+            );
+
+            auto length = readInt<int32_t>(stream);
+            if (!length) {
+                return std::unexpected(length.error());
+            }
+
+            if (*length < 0) {
+                return std::unexpected(std::runtime_error("Negative array length"));
+            }
+
+            const auto count = static_cast<size_t>(*length);
+            if (count > stream.bytesLeft() / sizeof(T)) {
+                return std::unexpected(std::runtime_error("Array length too large"));
+            }
+
+            auto bytes = stream.tryReadBytes(count * sizeof(T));
+            if (!bytes) {
+                return std::unexpected(std::runtime_error(bytes.error().what()));
+            }
+
+            std::vector<T> result(count);
+            std::memcpy(result.data(), bytes->data(), bytes->size());
+
+            if constexpr (Endian != std::endian::native) {
+                for (auto& value : result) {
+                    value = cubix::BinaryStream::adjustEndian<T, Endian>(value);
+                }
+            }
+
+            return result;
+        }
+
+        template <typename T>
+        static void writeArray(cubix::BinaryStream& stream, const std::vector<T>& values) {
+            static_assert(
+                std::is_trivially_copyable_v<T>, "writeArray requires a trivially copyable type"
+            );
+
+            writeInt<int32_t>(stream, static_cast<int32_t>(values.size()));
+
+            if (values.empty()) {
+                return;
+            }
+
+            if constexpr (Endian == std::endian::native) {
+                stream.writeBytes(
+                    reinterpret_cast<const uint8_t*>(values.data()), values.size() * sizeof(T)
+                );
+            }
+            else {
+                std::vector<T> swapped(values.size());
+                for (size_t i = 0; i < values.size(); ++i) {
+                    swapped[i] = cubix::BinaryStream::adjustEndian<T, Endian>(values[i]);
+                }
+
+                stream.writeBytes(
+                    reinterpret_cast<const uint8_t*>(swapped.data()), swapped.size() * sizeof(T)
+                );
             }
         }
     };
