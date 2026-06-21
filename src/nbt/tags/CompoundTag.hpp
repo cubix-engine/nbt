@@ -11,7 +11,15 @@
 #include "nbt/io/NbtWriter.hpp"
 
 #include "ByteTag.hpp"
+#include "DoubleTag.hpp"
+#include "FloatTag.hpp"
+#include "Int64Tag.hpp"
+#include "IntArrayTag.hpp"
 #include "IntTag.hpp"
+#include "ListTag.hpp"
+#include "LongArrayTag.hpp"
+#include "ShortTag.hpp"
+#include "StringTag.hpp"
 
 namespace Nbt {
 
@@ -19,15 +27,20 @@ namespace Nbt {
     std::expected<std::pair<std::string, std::unique_ptr<Tag>>, std::runtime_error>
     readNamed(cubix::BinaryStream&);
 
+    template <NbtFormat F>
+    class CompoundTag;
+
     template <typename T>
     struct TagTypeOf;
 
     template <NbtFormat F>
-    class CompoundTag;
-
-    template <NbtFormat F>
     struct TagTypeOf<ByteTag<F>> {
         static constexpr auto value = TagType::Byte;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<ShortTag<F>> {
+        static constexpr auto value = TagType::Short;
     };
 
     template <NbtFormat F>
@@ -36,8 +49,48 @@ namespace Nbt {
     };
 
     template <NbtFormat F>
+    struct TagTypeOf<Int64Tag<F>> {
+        static constexpr auto value = TagType::Int64;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<FloatTag<F>> {
+        static constexpr auto value = TagType::Float;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<DoubleTag<F>> {
+        static constexpr auto value = TagType::Double;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<StringTag<F>> {
+        static constexpr auto value = TagType::String;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<ListTag<F>> {
+        static constexpr auto value = TagType::List;
+    };
+
+    template <NbtFormat F>
     struct TagTypeOf<CompoundTag<F>> {
         static constexpr auto value = TagType::Compound;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<ByteArrayTag<F>> {
+        static constexpr auto value = TagType::ByteArray;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<IntArrayTag<F>> {
+        static constexpr auto value = TagType::IntArray;
+    };
+
+    template <NbtFormat F>
+    struct TagTypeOf<LongArrayTag<F>> {
+        static constexpr auto value = TagType::LongArray;
     };
 
     template <NbtFormat F>
